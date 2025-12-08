@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
-import { GameState, FillStatus, SCORING } from './types';
-import { Timer, RefreshCcw, Play, Trophy } from 'lucide-react';
+import { GameState, FillStatus, SCORING, DrinkType } from './types';
+import { Timer, RefreshCcw, Play, Trophy, Coffee, GlassWater } from 'lucide-react';
 
 export default function App() {
   // --- State ---
   const [gameState, setGameState] = useState<GameState>('MENU');
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(25);
   const [score, setScore] = useState(0);
   const [completedCups, setCompletedCups] = useState(0);
+  const [drinkType, setDrinkType] = useState<DrinkType>('SODA');
 
   // Round State
   const [liquidLevel, setLiquidLevel] = useState(0); // Actual liquid
@@ -28,63 +29,81 @@ export default function App() {
 
   // State Refs for Loop Access
   const statusRef = useRef<FillStatus>('EMPTY');
+  const drinkTypeRef = useRef<DrinkType>('SODA');
+
+  // Sync ref with state
+  useEffect(() => {
+    drinkTypeRef.current = drinkType;
+  }, [drinkType]);
 
   // --- Game Loop (Physics) ---
   const updatePhysics = useCallback(() => {
     const currentStatus = statusRef.current;
+    const currentDrink = drinkTypeRef.current;
 
-    // 1. Pouring Logic
-    if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-      const fillSpeed = 0.55; // Controlled fill speed
+    if (currentDrink === 'SODA') {
+      // === SODA PHYSICS (UNCHANGED) ===
       
-      // Add liquid
-      liquidLevelRef.current += fillSpeed;
-      
-      // Soda Mechanics: LINEAR Pressure Buildup
-      // Rate: 0.22 per frame.
-      // If filling to 80% (approx 145 frames) -> ~32 pressure units.
-      // This means if you stop at 80%, foam will rise +32 units -> 112 (Spill).
-      // You need to stop earlier (e.g., around 65-70%) to let foam rise to the target.
-      pressureRef.current += 0.22; 
-      
-      // Visual base foam while pouring
-      // Cap at a small amount so it looks like "agitation" but not full head yet
-      if (foamLevelRef.current < 8) {
-          foamLevelRef.current += 0.5;
-      }
-    } 
-    // 2. Settling Logic (The Natural Surge)
-    else if (!isPouringRef.current && currentStatus === 'SETTLING') {
-      
-      // Phase A: Pressure Release (The Rise)
-      // We transfer pressure to foam height LINEARLY.
-      // This creates a steady, suspenseful rise instead of an instant explosion.
-      if (pressureRef.current > 0) {
-        const riseSpeed = 0.4; // Foam rises at 0.4 units per frame (approx 24 units per second)
+      // 1. Pouring Logic
+      if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
+        const fillSpeed = 0.55; 
+        liquidLevelRef.current += fillSpeed;
         
-        const amountToTransfer = Math.min(pressureRef.current, riseSpeed);
+        // Pressure Buildup
+        pressureRef.current += 0.22; 
         
-        foamLevelRef.current += amountToTransfer;
-        pressureRef.current -= amountToTransfer;
-        
-        // Clamp slight floating point errors
-        if (pressureRef.current < 0.01) pressureRef.current = 0;
+        // Visual base foam
+        if (foamLevelRef.current < 8) {
+            foamLevelRef.current += 0.5;
+        }
       } 
-      // Phase B: Decay (The Settle)
-      else {
-        // Once pressure is depleted, foam slowly starts to pop.
-        // Linear decay prevents it from disappearing too fast.
-        if (foamLevelRef.current > 0) {
-           foamLevelRef.current -= 0.06; // Slow, steady decay
-           if (foamLevelRef.current < 0) foamLevelRef.current = 0;
+      // 2. Settling Logic
+      else if (!isPouringRef.current && currentStatus === 'SETTLING') {
+        if (pressureRef.current > 0) {
+          const riseSpeed = 0.4;
+          const amountToTransfer = Math.min(pressureRef.current, riseSpeed);
+          
+          foamLevelRef.current += amountToTransfer;
+          pressureRef.current -= amountToTransfer;
+          
+          if (pressureRef.current < 0.01) pressureRef.current = 0;
+        } else {
+          // Decay
+          if (foamLevelRef.current > 0) {
+             foamLevelRef.current -= 0.06;
+             if (foamLevelRef.current < 0) foamLevelRef.current = 0;
+          }
+        }
+      }
+
+    } else {
+      // === COFFEE PHYSICS (NEW) ===
+      // Fast pour, no pressure, small constant crema
+      
+      if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
+        const fillSpeed = 0.85; // Faster than soda
+        liquidLevelRef.current += fillSpeed;
+        
+        // No pressure buildup for coffee
+        
+        // Crema foam (constant small amount while pouring)
+        const targetCrema = 5;
+        if (foamLevelRef.current < targetCrema) {
+          foamLevelRef.current += 0.5;
+        }
+      }
+      else if (!isPouringRef.current && currentStatus === 'SETTLING') {
+        // Coffee settles immediately to a thin layer
+        if (foamLevelRef.current > 2) {
+          foamLevelRef.current -= 0.1;
         }
       }
     }
 
-    // 3. Overflow Check
+    // 3. Overflow Check (Common)
     const totalHeight = liquidLevelRef.current + foamLevelRef.current;
     
-    // SPILL THRESHOLD: 105 (Surface Tension allowed)
+    // SPILL THRESHOLD
     if (totalHeight > 105 && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
         handleSpillInternal();
     }
@@ -145,10 +164,9 @@ export default function App() {
     setStatus('SETTLING');
     statusRef.current = 'SETTLING';
 
-    // Wait time: Needs to be long enough for the foam to rise fully and start decaying slightly.
-    // If pressure is high (~30), rise takes ~1.2s (30/0.4/60).
-    // Let's give it 2.2 seconds to be safe and let users see the result.
-    const waitTime = 2200; 
+    // Different wait times based on drink type
+    // Soda needs time for foam to rise. Coffee is quick.
+    const waitTime = drinkType === 'SODA' ? 2200 : 800;
 
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
     settledTimerRef.current = setTimeout(() => {
@@ -199,9 +217,10 @@ export default function App() {
   };
 
   const nextRound = () => {
+    // --- RESET ALL PHYSICS PARAMS ---
     liquidLevelRef.current = 0;
     foamLevelRef.current = 0;
-    pressureRef.current = 0; // Reset pressure
+    pressureRef.current = 0; // Crucial reset
     isPouringRef.current = false;
     
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
@@ -214,11 +233,12 @@ export default function App() {
     setFeedback(null);
   };
 
-  const startGame = () => {
+  const startGame = (type: DrinkType) => {
+    setDrinkType(type);
     setGameState('PLAYING');
     setScore(0);
     setCompletedCups(0);
-    setTimeLeft(60);
+    setTimeLeft(25);
     nextRound();
   };
 
@@ -241,33 +261,42 @@ export default function App() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center font-sans text-white relative overflow-hidden bg-teal-900">
+    <div className={`min-h-screen flex flex-col items-center justify-center font-sans text-white relative overflow-hidden transition-colors duration-500 ${gameState === 'MENU' ? 'bg-neutral-900' : (drinkType === 'SODA' ? 'bg-teal-900' : 'bg-amber-950')}`}>
       
       {/* Background */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-teal-400 via-cyan-800 to-black"></div>
+      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 to-black"></div>
 
       {gameState === 'MENU' && (
-        <div className="z-10 text-center bg-white/5 backdrop-blur-md p-8 rounded-2xl border border-white/10 shadow-2xl max-w-sm mx-4">
-          <h1 className="text-5xl font-black mb-2 text-white drop-shadow-md">汽水大師</h1>
-          <p className="mb-6 text-lg text-teal-200">不要倒太滿，氣泡會衝上來！</p>
+        <div className="z-10 text-center bg-white/5 backdrop-blur-md p-8 rounded-2xl border border-white/10 shadow-2xl max-w-sm mx-4 w-full">
+          <h1 className="text-5xl font-black mb-6 text-white drop-shadow-md">倒飲料大師</h1>
           
-          <div className="space-y-4 text-left bg-black/40 p-4 rounded-lg mb-8 text-sm border border-white/5">
-             <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-teal-400"></span>
-                <p className="text-gray-300">規則：倒汽水到虛線處。</p>
-             </div>
-             <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-white animate-pulse"></span>
-                <p className="text-gray-300"><span className="text-teal-300 font-bold">警告：</span>停手後氣泡會上升，請提早收手！</p>
-             </div>
+          <div className="grid gap-4">
+            <button 
+              onClick={() => startGame('SODA')}
+              className="group relative flex items-center justify-center gap-3 w-full px-6 py-4 text-xl font-bold text-teal-900 transition-all duration-200 bg-teal-300 rounded-xl hover:bg-teal-200 hover:scale-105 active:scale-95"
+            >
+              <GlassWater size={24} /> 
+              <div>
+                <span className="block">激浪汽水</span>
+                <span className="text-xs opacity-75 font-normal">困難：注意氣泡！</span>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => startGame('COFFEE')}
+              className="group relative flex items-center justify-center gap-3 w-full px-6 py-4 text-xl font-bold text-amber-900 transition-all duration-200 bg-amber-300 rounded-xl hover:bg-amber-200 hover:scale-105 active:scale-95"
+            >
+              <Coffee size={24} /> 
+              <div>
+                <span className="block">醇香咖啡</span>
+                <span className="text-xs opacity-75 font-normal">普通：速度很快！</span>
+              </div>
+            </button>
           </div>
 
-          <button 
-            onClick={startGame}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-2xl font-bold text-teal-900 transition-all duration-200 bg-white font-pj rounded-full focus:outline-none hover:bg-gray-200 hover:scale-105 active:scale-95"
-          >
-            <Play className="mr-2" /> 開始挑戰
-          </button>
+          <div className="mt-8 text-sm text-gray-400">
+             規則：將飲料倒至虛線處
+          </div>
         </div>
       )}
 
@@ -287,10 +316,10 @@ export default function App() {
           </div>
 
           <button 
-            onClick={startGame}
-            className="w-full py-4 bg-white text-teal-900 rounded-xl font-bold text-xl hover:bg-gray-200 transition-colors flex items-center justify-center"
+            onClick={() => setGameState('MENU')}
+            className="w-full py-4 bg-white text-gray-900 rounded-xl font-bold text-xl hover:bg-gray-200 transition-colors flex items-center justify-center"
           >
-            <RefreshCcw className="mr-2" /> 再玩一次
+            <RefreshCcw className="mr-2" /> 返回菜單
           </button>
         </div>
       )}
@@ -316,14 +345,14 @@ export default function App() {
           <div className="relative w-full flex-1 flex flex-col items-center justify-start mt-4">
             
             {/* Dispenser Machine */}
-            <Dispenser isPouring={status === 'POURING'} />
+            <Dispenser isPouring={status === 'POURING'} drinkType={drinkType} />
 
             {/* Glass Area */}
             <div className="relative mt-2">
               {/* Feedback Bubble */}
               {feedback && (
                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-50 animate-pop">
-                  <div className="px-4 py-2 rounded-full font-black border-4 shadow-lg text-xl transform rotate-[-5deg] bg-white text-teal-800 border-teal-500">
+                  <div className={`px-4 py-2 rounded-full font-black border-4 shadow-lg text-xl transform rotate-[-5deg] bg-white ${drinkType === 'SODA' ? 'text-teal-800 border-teal-500' : 'text-amber-800 border-amber-600'}`}>
                     {feedback}
                   </div>
                 </div>
@@ -333,6 +362,7 @@ export default function App() {
                 liquidHeight={liquidLevel} 
                 foamHeight={foamLevel} 
                 isSpilled={status === 'SPILLED'} 
+                drinkType={drinkType}
               />
             </div>
           </div>
@@ -350,13 +380,13 @@ export default function App() {
                 w-24 h-24 rounded-full border-b-8 shadow-2xl flex items-center justify-center transition-all active:scale-95 active:border-b-0 active:translate-y-2
                 ${status === 'EVALUATING' || status === 'SPILLED' 
                   ? 'bg-gray-500 border-gray-700 cursor-not-allowed' 
-                  : 'bg-teal-500 border-teal-800 hover:bg-teal-400'}
+                  : (drinkType === 'SODA' ? 'bg-teal-500 border-teal-800 hover:bg-teal-400' : 'bg-amber-600 border-amber-900 hover:bg-amber-500')}
               `}
             >
               <span className="font-bold text-xl drop-shadow-md">倒</span>
             </button>
             <p className="text-center text-sm mt-4 opacity-50">
-               按住倒汽水（小心氣泡！）
+               {drinkType === 'SODA' ? '按住倒汽水（小心氣泡！）' : '按住倒咖啡（速度很快！）'}
             </p>
           </div>
         </div>

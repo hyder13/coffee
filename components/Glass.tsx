@@ -1,16 +1,19 @@
 import React from 'react';
-import { TARGET_LINE } from '../types';
+import { TARGET_LINE, DrinkType } from '../types';
 
 interface GlassProps {
   liquidHeight: number; // 0 to 100+
   foamHeight: number;   // 0 to 100+
   isSpilled: boolean;
+  drinkType: DrinkType;
 }
 
-export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled }) => {
-  // Soda Colors
-  const liquidColor = 'bg-teal-500';
-  const foamColor = 'bg-white'; 
+export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled, drinkType }) => {
+  const isSoda = drinkType === 'SODA';
+
+  // Colors
+  const liquidColor = isSoda ? 'bg-teal-500' : 'bg-amber-950';
+  const foamColor = isSoda ? 'bg-white' : 'bg-amber-200'; // Coffee foam is crema (tan)
 
   return (
     <div className="relative mx-auto w-32 h-48 sm:w-40 sm:h-60">
@@ -25,13 +28,13 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
           <span className="text-[12px] text-red-500 font-bold -mt-4 bg-white/80 px-1 rounded">目標線</span>
         </div>
 
-        {/* The Liquid - NO transition-all here to prevent lag */}
+        {/* The Liquid */}
         <div 
           className={`absolute bottom-0 left-0 w-full ${liquidColor}`}
           style={{ height: `${Math.max(0, liquidHeight)}%` }}
         >
-          {/* Bubbles */}
-          {liquidHeight > 5 && (
+          {/* Bubbles - Only for Soda */}
+          {isSoda && liquidHeight > 5 && (
             <>
               <div className="bubble left-[15%] w-1 h-1" style={{ animationDelay: '0s', bottom: '10%' }}></div>
               <div className="bubble left-[35%] w-2 h-2" style={{ animationDelay: '0.3s', bottom: '30%' }}></div>
@@ -42,7 +45,7 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
           )}
         </div>
 
-        {/* The Foam - NO transition-all here to prevent lag */}
+        {/* The Foam */}
         <div 
           className={`absolute left-0 w-full ${foamColor} opacity-80`}
           style={{ 
@@ -58,7 +61,7 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
       
       {/* Spill effect */}
       {isSpilled && (
-        <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-48 h-4 blur-md rounded-full bg-teal-500/50"></div>
+        <div className={`absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-48 h-4 blur-md rounded-full ${isSoda ? 'bg-teal-500/50' : 'bg-amber-900/50'}`}></div>
       )}
     </div>
   );

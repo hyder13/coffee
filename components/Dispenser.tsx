@@ -1,14 +1,19 @@
 import React from 'react';
+import { DrinkType } from '../types';
 
 interface DispenserProps {
   isPouring: boolean;
+  drinkType: DrinkType;
 }
 
-export const Dispenser: React.FC<DispenserProps> = ({ isPouring }) => {
-  // Soda Styling (Teal/Green)
-  const brandColor = 'bg-teal-600';
-  const logoText = '激浪汽水';
-  const liquidStreamColor = 'bg-teal-400';
+export const Dispenser: React.FC<DispenserProps> = ({ isPouring, drinkType }) => {
+  const isSoda = drinkType === 'SODA';
+
+  // Styling based on drink type
+  const brandColor = isSoda ? 'bg-teal-600' : 'bg-amber-900';
+  const logoText = isSoda ? '激浪汽水' : '醇香咖啡';
+  const liquidStreamColor = isSoda ? 'bg-teal-400' : 'bg-amber-950';
+  const textColor = isSoda ? 'text-teal-800' : 'text-amber-100';
 
   return (
     <div className="w-full flex flex-col items-center relative z-10">
@@ -24,7 +29,7 @@ export const Dispenser: React.FC<DispenserProps> = ({ isPouring }) => {
 
         {/* Nozzle Area */}
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-8 bg-gray-300 rounded-t-lg shadow-inner flex items-center justify-center">
-            <span className="text-[12px] font-bold text-teal-800">
+            <span className={`text-[12px] font-bold ${textColor}`}>
               {logoText}
             </span>
         </div>

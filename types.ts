@@ -1,4 +1,4 @@
-export type DrinkType = 'SODA';
+export type DrinkType = 'SODA' | 'COFFEE';
 
 export type GameState = 'MENU' | 'PLAYING' | 'RESULT';
 
