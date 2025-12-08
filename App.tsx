@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
-import { DrinkType, GameState, FillStatus, SCORING } from './types';
+import { GameState, FillStatus, SCORING } from './types';
 import { Timer, RefreshCcw, Play, Trophy } from 'lucide-react';
 
 export default function App() {
@@ -12,9 +12,8 @@ export default function App() {
   const [completedCups, setCompletedCups] = useState(0);
 
   // Round State
-  const [drinkType, setDrinkType] = useState<DrinkType>('COFFEE');
   const [liquidLevel, setLiquidLevel] = useState(0); // Actual liquid
-  const [foamLevel, setFoamLevel] = useState(0); // Foam visual height (minimal for coffee)
+  const [foamLevel, setFoamLevel] = useState(0); // Foam visual height
   const [status, setStatus] = useState<FillStatus>('EMPTY');
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -23,53 +22,83 @@ export default function App() {
   const isPouringRef = useRef(false);
   const liquidLevelRef = useRef(0);
   const foamLevelRef = useRef(0);
+  const pressureRef = useRef(0); // Soda pressure mechanic
   const settledTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // State Refs for Loop Access (prevents loop recreation)
+  // State Refs for Loop Access
   const statusRef = useRef<FillStatus>('EMPTY');
 
   // --- Game Loop (Physics) ---
   const updatePhysics = useCallback(() => {
-    // Determine current state from refs
     const currentStatus = statusRef.current;
 
     // 1. Pouring Logic
     if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-      const fillSpeed = 0.6; // Base fill speed
+      const fillSpeed = 0.55; // Controlled fill speed
       
       // Add liquid
       liquidLevelRef.current += fillSpeed;
       
-      // Coffee Mechanics: No pressure, no significant foam
-      foamLevelRef.current = 0;
+      // Soda Mechanics: LINEAR Pressure Buildup
+      // Rate: 0.22 per frame.
+      // If filling to 80% (approx 145 frames) -> ~32 pressure units.
+      // This means if you stop at 80%, foam will rise +32 units -> 112 (Spill).
+      // You need to stop earlier (e.g., around 65-70%) to let foam rise to the target.
+      pressureRef.current += 0.22; 
+      
+      // Visual base foam while pouring
+      // Cap at a small amount so it looks like "agitation" but not full head yet
+      if (foamLevelRef.current < 8) {
+          foamLevelRef.current += 0.5;
+      }
     } 
-    // 2. Settling/Stopping Logic - Coffee stops instantly
+    // 2. Settling Logic (The Natural Surge)
+    else if (!isPouringRef.current && currentStatus === 'SETTLING') {
+      
+      // Phase A: Pressure Release (The Rise)
+      // We transfer pressure to foam height LINEARLY.
+      // This creates a steady, suspenseful rise instead of an instant explosion.
+      if (pressureRef.current > 0) {
+        const riseSpeed = 0.4; // Foam rises at 0.4 units per frame (approx 24 units per second)
+        
+        const amountToTransfer = Math.min(pressureRef.current, riseSpeed);
+        
+        foamLevelRef.current += amountToTransfer;
+        pressureRef.current -= amountToTransfer;
+        
+        // Clamp slight floating point errors
+        if (pressureRef.current < 0.01) pressureRef.current = 0;
+      } 
+      // Phase B: Decay (The Settle)
+      else {
+        // Once pressure is depleted, foam slowly starts to pop.
+        // Linear decay prevents it from disappearing too fast.
+        if (foamLevelRef.current > 0) {
+           foamLevelRef.current -= 0.06; // Slow, steady decay
+           if (foamLevelRef.current < 0) foamLevelRef.current = 0;
+        }
+      }
+    }
 
     // 3. Overflow Check
     const totalHeight = liquidLevelRef.current + foamLevelRef.current;
     
-    // SPILL THRESHOLD: 
-    // Increased to 105 to allow for "Surface Tension" effect.
-    // > 105 is a hard fail.
+    // SPILL THRESHOLD: 105 (Surface Tension allowed)
     if (totalHeight > 105 && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
         handleSpillInternal();
     }
 
-    // Update React State for rendering
+    // Update React State
     setLiquidLevel(liquidLevelRef.current);
     setFoamLevel(foamLevelRef.current);
 
-    // Continue loop
     requestRef.current = requestAnimationFrame(updatePhysics);
   }, []);
 
-  // Handle spill logic inside loop context
   const handleSpillInternal = () => {
-    // Immediate updates
     setStatus('SPILLED');
     statusRef.current = 'SPILLED';
-    
     isPouringRef.current = false;
     setFeedback("溢出來了！");
     
@@ -102,12 +131,10 @@ export default function App() {
   const startPouring = () => {
     if (status === 'EVALUATING' || status === 'SPILLED' || gameState !== 'PLAYING') return;
     
-    // Immediate updates
     setStatus('POURING');
     statusRef.current = 'POURING';
     isPouringRef.current = true;
     
-    // Clear any pending evaluation timers
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
   };
 
@@ -115,23 +142,18 @@ export default function App() {
     if (!isPouringRef.current) return;
     
     isPouringRef.current = false;
-    
-    // Immediate updates
     setStatus('SETTLING');
     statusRef.current = 'SETTLING';
 
-    // Wait for physics to settle before judging
-    // Coffee settles quickly
-    const waitTime = 600;
+    // Wait time: Needs to be long enough for the foam to rise fully and start decaying slightly.
+    // If pressure is high (~30), rise takes ~1.2s (30/0.4/60).
+    // Let's give it 2.2 seconds to be safe and let users see the result.
+    const waitTime = 2200; 
 
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
     settledTimerRef.current = setTimeout(() => {
       evaluateRound();
     }, waitTime);
-  };
-
-  const handleSpill = () => {
-     handleSpillInternal();
   };
 
   const evaluateRound = () => {
@@ -143,14 +165,11 @@ export default function App() {
     let roundScore = 0;
     let msg = "";
 
-    // Tolerance check & Grading
     if (finalLevel > 105) {
-      // Hard Spill
       msg = "溢出來了！";
       roundScore = 0;
     } else if (finalLevel > 100) {
-      // 100 - 105: Surface Tension Bonus
-      msg = "表面張力！";
+      msg = "表面張力！"; // Surface tension save
       roundScore = 30; 
     } else if (finalLevel >= SCORING.perfectMin && finalLevel <= SCORING.perfectMax) {
       msg = "完美！";
@@ -159,7 +178,6 @@ export default function App() {
       msg = "不錯！";
       roundScore = 50;
     } else if (finalLevel > SCORING.goodMax) {
-      // Between 90 and 100
       msg = "太多了！";
       roundScore = 10;
     } else if (finalLevel < SCORING.goodMin) {
@@ -181,25 +199,19 @@ export default function App() {
   };
 
   const nextRound = () => {
-    // Reset physics
     liquidLevelRef.current = 0;
     foamLevelRef.current = 0;
+    pressureRef.current = 0; // Reset pressure
     isPouringRef.current = false;
     
-    // Clear timers
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
 
     setLiquidLevel(0);
     setFoamLevel(0);
-    
-    // Immediate updates
     setStatus('EMPTY');
     statusRef.current = 'EMPTY';
     setFeedback(null);
-    
-    // Always coffee
-    setDrinkType('COFFEE');
   };
 
   const startGame = () => {
@@ -229,38 +241,44 @@ export default function App() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center font-sans text-white relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center font-sans text-white relative overflow-hidden bg-teal-900">
       
-      {/* Background decoration - Coffee Theme */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-700 via-neutral-900 to-black"></div>
+      {/* Background */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-teal-400 via-cyan-800 to-black"></div>
 
       {gameState === 'MENU' && (
         <div className="z-10 text-center bg-white/5 backdrop-blur-md p-8 rounded-2xl border border-white/10 shadow-2xl max-w-sm mx-4">
-          <h1 className="text-5xl font-black mb-2 text-amber-500 drop-shadow-md">咖啡大師</h1>
-          <p className="mb-6 text-lg text-gray-300">精準控制，滴滴香醇</p>
+          <h1 className="text-5xl font-black mb-2 text-white drop-shadow-md">汽水大師</h1>
+          <p className="mb-6 text-lg text-teal-200">不要倒太滿，氣泡會衝上來！</p>
           
           <div className="space-y-4 text-left bg-black/40 p-4 rounded-lg mb-8 text-sm border border-white/5">
-            <p className="text-gray-300">🎯 <span className="font-bold text-amber-400">目標：</span>將咖啡倒至虛線處。</p>
-            <p className="text-gray-300">☕ <span className="font-bold text-amber-400">操作：</span>按住倒水，放開停止。</p>
+             <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-teal-400"></span>
+                <p className="text-gray-300">規則：倒汽水到虛線處。</p>
+             </div>
+             <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-white animate-pulse"></span>
+                <p className="text-gray-300"><span className="text-teal-300 font-bold">警告：</span>停手後氣泡會上升，請提早收手！</p>
+             </div>
           </div>
 
           <button 
             onClick={startGame}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-2xl font-bold text-amber-950 transition-all duration-200 bg-amber-500 font-pj rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 hover:bg-amber-400 hover:scale-105 active:scale-95"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-2xl font-bold text-teal-900 transition-all duration-200 bg-white font-pj rounded-full focus:outline-none hover:bg-gray-200 hover:scale-105 active:scale-95"
           >
-            <Play className="mr-2" /> 開始工作
+            <Play className="mr-2" /> 開始挑戰
           </button>
         </div>
       )}
 
       {gameState === 'RESULT' && (
         <div className="z-10 text-center bg-white/10 backdrop-blur-md p-8 rounded-2xl border border-white/20 shadow-2xl animate-pop">
-          <h2 className="text-4xl font-bold mb-4">下班了！</h2>
+          <h2 className="text-4xl font-bold mb-4">時間到！</h2>
           
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="bg-black/20 p-4 rounded-xl">
               <p className="text-sm opacity-70">總分</p>
-              <p className="text-3xl font-bold text-amber-400">{score}</p>
+              <p className="text-3xl font-bold text-yellow-400">{score}</p>
             </div>
             <div className="bg-black/20 p-4 rounded-xl">
               <p className="text-sm opacity-70">完成杯數</p>
@@ -270,9 +288,9 @@ export default function App() {
 
           <button 
             onClick={startGame}
-            className="w-full py-4 bg-amber-500 text-amber-950 rounded-xl font-bold text-xl hover:bg-amber-400 transition-colors flex items-center justify-center"
+            className="w-full py-4 bg-white text-teal-900 rounded-xl font-bold text-xl hover:bg-gray-200 transition-colors flex items-center justify-center"
           >
-            <RefreshCcw className="mr-2" /> 再來一天
+            <RefreshCcw className="mr-2" /> 再玩一次
           </button>
         </div>
       )}
@@ -283,7 +301,7 @@ export default function App() {
           {/* Header UI */}
           <div className="w-full px-6 flex justify-between items-center mb-4">
              <div className="bg-black/30 px-4 py-2 rounded-full flex items-center gap-2 border border-white/10">
-               <Trophy size={18} className="text-amber-400" />
+               <Trophy size={18} className="text-yellow-400" />
                <span className="font-bold text-xl">{score}</span>
              </div>
              <div className="bg-black/30 px-4 py-2 rounded-full flex items-center gap-2 border border-white/10">
@@ -298,14 +316,14 @@ export default function App() {
           <div className="relative w-full flex-1 flex flex-col items-center justify-start mt-4">
             
             {/* Dispenser Machine */}
-            <Dispenser drinkType={drinkType} isPouring={status === 'POURING'} />
+            <Dispenser isPouring={status === 'POURING'} />
 
             {/* Glass Area */}
             <div className="relative mt-2">
               {/* Feedback Bubble */}
               {feedback && (
                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-50 animate-pop">
-                  <div className="bg-white text-amber-800 px-4 py-2 rounded-full font-black border-4 border-amber-600 shadow-lg text-xl transform rotate-[-5deg]">
+                  <div className="px-4 py-2 rounded-full font-black border-4 shadow-lg text-xl transform rotate-[-5deg] bg-white text-teal-800 border-teal-500">
                     {feedback}
                   </div>
                 </div>
@@ -314,7 +332,6 @@ export default function App() {
               <Glass 
                 liquidHeight={liquidLevel} 
                 foamHeight={foamLevel} 
-                drinkType={drinkType} 
                 isSpilled={status === 'SPILLED'} 
               />
             </div>
@@ -330,13 +347,17 @@ export default function App() {
               onTouchEnd={(e) => { e.preventDefault(); stopPouring(); }}
               disabled={status === 'EVALUATING' || status === 'SPILLED'}
               className={`
-                w-24 h-24 rounded-full border-b-8 border-amber-900 shadow-2xl flex items-center justify-center transition-all active:scale-95 active:border-b-0 active:translate-y-2
-                ${status === 'EVALUATING' || status === 'SPILLED' ? 'bg-gray-500 border-gray-700 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-500'}
+                w-24 h-24 rounded-full border-b-8 shadow-2xl flex items-center justify-center transition-all active:scale-95 active:border-b-0 active:translate-y-2
+                ${status === 'EVALUATING' || status === 'SPILLED' 
+                  ? 'bg-gray-500 border-gray-700 cursor-not-allowed' 
+                  : 'bg-teal-500 border-teal-800 hover:bg-teal-400'}
               `}
             >
               <span className="font-bold text-xl drop-shadow-md">倒</span>
             </button>
-            <p className="text-center text-sm mt-4 opacity-50">按住倒咖啡</p>
+            <p className="text-center text-sm mt-4 opacity-50">
+               按住倒汽水（小心氣泡！）
+            </p>
           </div>
         </div>
       )}

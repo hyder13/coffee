@@ -1,23 +1,21 @@
 import React from 'react';
-import { DrinkType } from '../types';
 
 interface DispenserProps {
-  drinkType: DrinkType;
   isPouring: boolean;
 }
 
 export const Dispenser: React.FC<DispenserProps> = ({ isPouring }) => {
-  // Coffee Styling
-  const brandColor = 'bg-amber-900';
-  const logoText = '熱咖啡';
-  const liquidStreamColor = 'bg-[#3e2723]';
+  // Soda Styling (Teal/Green)
+  const brandColor = 'bg-teal-600';
+  const logoText = '激浪汽水';
+  const liquidStreamColor = 'bg-teal-400';
 
   return (
     <div className="w-full flex flex-col items-center relative z-10">
       {/* Main Machine Body */}
       <div className="w-full h-32 bg-neutral-800 border-b-8 border-neutral-900 relative shadow-xl overflow-hidden">
         {/* Drink Tank Window */}
-        <div className="absolute top-4 left-4 right-4 h-16 bg-amber-950/50 rounded-lg overflow-hidden border-2 border-neutral-600">
+        <div className="absolute top-4 left-4 right-4 h-16 bg-black/50 rounded-lg overflow-hidden border-2 border-neutral-600">
            {/* Liquid inside machine */}
            <div className={`w-full h-full ${brandColor} opacity-80 flex items-center justify-center`}>
               <div className="wave w-[200%] h-full absolute opacity-30 bg-white translate-x-1/2 skew-x-12"></div>
@@ -25,8 +23,10 @@ export const Dispenser: React.FC<DispenserProps> = ({ isPouring }) => {
         </div>
 
         {/* Nozzle Area */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-8 bg-gray-300 rounded-t-lg shadow-inner flex items-center justify-center">
-            <span className="text-[12px] font-bold text-gray-600">{logoText}</span>
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-8 bg-gray-300 rounded-t-lg shadow-inner flex items-center justify-center">
+            <span className="text-[12px] font-bold text-teal-800">
+              {logoText}
+            </span>
         </div>
       </div>
 

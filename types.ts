@@ -1,4 +1,4 @@
-export type DrinkType = 'COFFEE';
+export type DrinkType = 'SODA';
 
 export type GameState = 'MENU' | 'PLAYING' | 'RESULT';
 
@@ -18,5 +18,5 @@ export const SCORING: ScoreConfig = {
   perfectMin: 78,
   perfectMax: 82,
   goodMin: 70,
-  goodMax: 90, // Anything above 90 is too risky, but technically "good" until 100
+  goodMax: 90, // Anything above 90 is risky
 };

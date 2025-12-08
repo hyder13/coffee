@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>咖啡大師</title>
+    <title>汽水大師</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap');
@@ -23,6 +23,20 @@
       
       .animate-pop {
         animation: pop-in 0.3s ease-out forwards;
+      }
+
+      /* Bubbles animation */
+      @keyframes bubble-rise {
+        0% { transform: translateY(0) scale(1); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: translateY(-30px) scale(1.2); opacity: 0; }
+      }
+      
+      .bubble {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 50%;
+        animation: bubble-rise 0.8s infinite linear;
       }
     </style>
   <script type="importmap">
