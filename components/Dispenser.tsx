@@ -6,10 +6,11 @@ interface DispenserProps {
   isPouring: boolean;
 }
 
-export const Dispenser: React.FC<DispenserProps> = ({ drinkType, isPouring }) => {
-  const brandColor = drinkType === 'COFFEE' ? 'bg-amber-900' : 'bg-red-700';
-  const logoText = drinkType === 'COFFEE' ? '熱咖啡' : '氣泡可樂';
-  const liquidStreamColor = drinkType === 'COFFEE' ? 'bg-[#3e2723]' : 'bg-[#5d4037]';
+export const Dispenser: React.FC<DispenserProps> = ({ isPouring }) => {
+  // Coffee Styling
+  const brandColor = 'bg-amber-900';
+  const logoText = '熱咖啡';
+  const liquidStreamColor = 'bg-[#3e2723]';
 
   return (
     <div className="w-full flex flex-col items-center relative z-10">

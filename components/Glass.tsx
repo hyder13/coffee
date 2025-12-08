@@ -3,19 +3,19 @@ import { DrinkType, TARGET_LINE } from '../types';
 
 interface GlassProps {
   liquidHeight: number; // 0 to 100+
-  foamHeight: number;   // Visual extra height for soda
+  foamHeight: number;   // Not really used for coffee anymore, but kept for interface compatibility or crema
   drinkType: DrinkType;
   isSpilled: boolean;
 }
 
-export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, drinkType, isSpilled }) => {
+export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled }) => {
   // Cap visual height for internal rendering so it doesn't look weird, 
   // but allow it to look full/overflowing
   const totalVisualHeight = Math.min(105, liquidHeight + foamHeight);
   
-  // Colors
-  const liquidColor = drinkType === 'COFFEE' ? 'bg-[#3e2723]' : 'bg-[#5d4037]';
-  const foamColor = drinkType === 'COFFEE' ? 'bg-[#5d4037]' : 'bg-[#d7ccc8]';
+  // Coffee Colors
+  const liquidColor = 'bg-[#3e2723]';
+  const foamColor = 'bg-[#5d4037]'; // Darker foam for crema
 
   return (
     <div className="relative mx-auto w-32 h-48 sm:w-40 sm:h-60">
@@ -30,23 +30,15 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, drinkTyp
           <span className="text-[12px] text-red-500 font-bold -mt-4 bg-white/80 px-1 rounded">目標線</span>
         </div>
 
-        {/* The Liquid - REMOVED transition-all to allow smooth 60fps updates */}
+        {/* The Liquid */}
         <div 
           className={`absolute bottom-0 left-0 w-full ${liquidColor}`}
           style={{ height: `${Math.max(0, liquidHeight)}%` }}
         >
-          {/* Bubbles for Soda */}
-          {drinkType === 'SODA' && liquidHeight > 5 && (
-            <div className="absolute inset-0 w-full h-full overflow-hidden opacity-50">
-              <div className="w-2 h-2 rounded-full bg-white/40 absolute bottom-2 left-2 animate-bounce" style={{ animationDuration: '2s' }}></div>
-              <div className="w-1 h-1 rounded-full bg-white/40 absolute bottom-6 left-8 animate-bounce" style={{ animationDuration: '1.5s' }}></div>
-              <div className="w-2 h-2 rounded-full bg-white/40 absolute bottom-4 left-1/2 animate-bounce" style={{ animationDuration: '2.2s' }}></div>
-              <div className="w-1 h-1 rounded-full bg-white/40 absolute bottom-10 right-4 animate-bounce" style={{ animationDuration: '1.8s' }}></div>
-            </div>
-          )}
+          {/* No bubbles for coffee */}
         </div>
 
-        {/* The Foam (Sits on top of liquid) */}
+        {/* The Foam (Crema) - Minimal for coffee */}
         <div 
           className={`absolute left-0 w-full transition-all duration-100 ease-out ${foamColor} opacity-90`}
           style={{ 
@@ -55,7 +47,7 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, drinkTyp
           }}
         >
           {/* Top of foam surface */}
-          <div className="w-full h-2 bg-white/30 absolute top-0"></div>
+          <div className="w-full h-1 bg-white/10 absolute top-0"></div>
         </div>
 
       </div>
