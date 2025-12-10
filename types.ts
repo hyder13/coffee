@@ -11,5 +11,5 @@ export const TARGET_MAX = 85;
 // Tolerance range (+/- percentage from target)
 export const TOLERANCE = 3; 
 
-// Conversion: 1% height ≈ 5ml (assuming 500ml glass capacity)
-export const ML_PER_PERCENT = 5;
+// Conversion: 1% height ≈ 6ml (Increased from 5 to create wider score range)
+export const ML_PER_PERCENT = 6;

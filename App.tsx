@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
 import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, TOLERANCE, ML_PER_PERCENT } from './types';
-import { Timer, RefreshCcw, Trophy, User, Droplets, Volume2, VolumeX, Play } from 'lucide-react';
+import { Timer, RefreshCcw, Trophy, User, Droplets, Volume2, VolumeX, Play, Clock } from 'lucide-react';
 import { SoundManager } from './utils/sound';
 
 export default function App() {
@@ -13,6 +13,7 @@ export default function App() {
   // --- Game Play State ---
   const [gameState, setGameState] = useState<GameState>('MENU');
   const [timeLeft, setTimeLeft] = useState(30);
+  const [endTime, setEndTime] = useState(''); // Timestamp for result verification
   
   // Scoreboard
   const [completedCups, setCompletedCups] = useState(0);
@@ -58,12 +59,17 @@ export default function App() {
     const currentStatus = statusRef.current;
     const currentDrink = drinkTypeRef.current;
 
+    // [新增] 微觀流體擾動 (Micro-Flow Noise)
+    // 讓每次 update 的流速都有極細微的差異 (0.001 ~ 0.005)
+    // 這確保了最終高度的小數點後數值是隨機的，避免同分
+    const flowNoise = Math.random() * 0.04; 
+
     if (currentDrink === 'SODA') {
       // === SODA PHYSICS (汽水物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-        // [設定] 汽水倒水速度 (數字越大，水上升越快)
-        const fillSpeed = 0.55; 
+        // [設定] 汽水倒水速度 (基礎 0.55 + 擾動)
+        const fillSpeed = 0.55 + flowNoise; 
         liquidLevelRef.current += fillSpeed;
         
         // [設定] 壓力累積 (數字越大，手放開後泡沫衝越高)
@@ -98,8 +104,8 @@ export default function App() {
       // === COFFEE PHYSICS (咖啡物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-        // [設定] 咖啡倒水速度 (通常比汽水快，因為泡沫少)
-        const fillSpeed = 0.85; 
+        // [設定] 咖啡倒水速度 (基礎 0.85 + 擾動)
+        const fillSpeed = 0.85 + flowNoise; 
         liquidLevelRef.current += fillSpeed;
         
         const targetCrema = 5;
@@ -210,6 +216,7 @@ export default function App() {
 
     let msg = "";
     let isSuccess = false;
+    let bonusPoints = 0;
 
     if (finalLevel > 105) {
       msg = "溢出！";
@@ -220,11 +227,20 @@ export default function App() {
     } else {
       // In the Zone!
       const diff = Math.abs(finalLevel - targetLine);
-      if (diff < 1) msg = "完美控制！";
-      else msg = "成功！";
-      
       isSuccess = true;
       SoundManager.playWin();
+
+      // [設定] 完美判定區間 (誤差小於 1%)
+      if (diff < 1) {
+        msg = "完美控制！";
+        // === 差異化計分邏輯 ===
+        // 基礎獎勵 30分 + 精準度獎勵 (0~20分)
+        // 越接近 0 誤差，分數越高，會產生個位數差異
+        // 結合 physics 裡的 random flowNoise，diff 會有非常細微的差異
+        bonusPoints = 30 + Math.floor((1 - diff) * 20);
+      } else {
+        msg = "成功！";
+      }
     }
 
     if (!isSuccess) {
@@ -235,8 +251,16 @@ export default function App() {
 
     if (isSuccess) {
       setCompletedCups(c => c + 1);
-      // Calculate ML: Total height percent * conversion factor
-      const mlEarned = Math.round(finalLevel * ML_PER_PERCENT);
+      
+      // Calculate ML
+      // 1. 基礎分：高度 * 6 (ML_PER_PERCENT)
+      let mlEarned = Math.floor(finalLevel * ML_PER_PERCENT);
+      
+      // 2. 加上完美獎勵 (解決同分問題的關鍵)
+      if (bonusPoints > 0) {
+        mlEarned += bonusPoints;
+      }
+
       setTotalML(prev => prev + mlEarned);
     }
     
@@ -284,6 +308,7 @@ export default function App() {
     setGameState('PLAYING');
     setCompletedCups(0);
     setTotalML(0);
+    setEndTime(''); // Reset verification time
     
     // [設定] 遊戲總時間 (單位: 秒)
     setTimeLeft(30); 
@@ -296,6 +321,7 @@ export default function App() {
     setGameState('MENU');
     setNickname('');
     setTempNickname('');
+    setEndTime('');
   };
 
   // --- Timer ---
@@ -305,6 +331,20 @@ export default function App() {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setGameState('RESULT');
+            
+            // --- Capture Verification Time ---
+            const now = new Date();
+            const timeStr = now.toLocaleString('zh-TW', {
+               year: 'numeric',
+               month: '2-digit',
+               day: '2-digit',
+               hour: '2-digit',
+               minute: '2-digit',
+               second: '2-digit',
+               hour12: false
+            });
+            setEndTime(timeStr);
+            
             SoundManager.stopPouring();
             return 0;
           }
@@ -380,8 +420,14 @@ export default function App() {
       {gameState === 'RESULT' && (
         <div className="z-10 text-center bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 shadow-2xl animate-pop w-[90%] max-w-sm mt-auto mb-auto">
           <h2 className="text-5xl font-black mb-2">挑戰結束</h2>
-          <div className="text-xl font-bold text-teal-300 mb-6 flex justify-center items-center gap-2">
+          
+          <div className="text-xl font-bold text-teal-300 mb-2 flex justify-center items-center gap-2">
             <User size={20} /> {nickname}
+          </div>
+          
+          {/* Timestamp Verification */}
+          <div className="text-xs text-gray-400 mb-6 font-mono tracking-wider flex items-center justify-center gap-1 opacity-80">
+             <Clock size={12} /> {endTime}
           </div>
           
           <div className="grid grid-cols-2 gap-4 mb-8">
