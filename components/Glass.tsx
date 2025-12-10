@@ -7,14 +7,18 @@ interface GlassProps {
   isSpilled: boolean;
   drinkType: DrinkType;
   targetLine: number;   // Dynamic target percentage
+  isPouring?: boolean;  // Added for stream rendering
 }
 
-export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled, drinkType, targetLine }) => {
+export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled, drinkType, targetLine, isPouring }) => {
   const isSoda = drinkType === 'SODA';
 
   // Colors
   const liquidColor = isSoda ? 'bg-teal-500' : 'bg-amber-950';
   const foamColor = isSoda ? 'bg-white' : 'bg-amber-200'; // Coffee foam is crema (tan)
+  
+  // Stream color (lighter than liquid to show flow)
+  const liquidStreamColor = isSoda ? 'bg-teal-400' : 'bg-amber-800'; 
 
   // Calculate Success Zone
   const zoneBottom = targetLine - TOLERANCE;
@@ -22,12 +26,35 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
 
   return (
     <div className="relative mx-auto w-32 h-48 sm:w-40 sm:h-60">
-      {/* The Glass Container */}
+      {/* The Glass Container - overflow-hidden is key to cutting off the stream at the bottom */}
       <div className={`relative w-full h-full border-b-4 border-l-4 border-r-4 border-white/80 rounded-b-xl overflow-hidden backdrop-blur-sm transition-colors duration-300 ${isSpilled ? 'border-red-500 bg-red-900/20' : 'bg-white/10'}`}>
         
+        {/* 
+          Layer 0: The Stream 
+          Rendered inside the glass but positioned absolutely to look like it comes from the nozzle.
+          Z-Index 0: So it sits BEHIND the rising liquid (Layer 2).
+        */}
+        <div className="absolute top-[-20px] left-1/2 -translate-x-1/2 w-full h-[120%] flex justify-center z-0 pointer-events-none">
+           <div 
+              className={`
+                 ${liquidStreamColor} 
+                 transition-all duration-200 ease-in-out
+                 rounded-b-full
+                 ${isPouring ? 'opacity-90' : 'opacity-0'}
+              `}
+              style={{
+                 width: isPouring ? '10px' : '4px',
+                 height: '100%', // Fills the container (which is taller than glass to connect to nozzle)
+                 backgroundImage: `linear-gradient(45deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)`,
+                 backgroundSize: '20px 20px',
+                 animation: isPouring ? 'flow-stripe 0.4s linear infinite' : 'none',
+              }}
+           ></div>
+        </div>
+
         {/* Success Zone (The Green Area) */}
         <div 
-          className="absolute w-full bg-green-500/20 border-t border-b border-green-400/50 z-10 transition-all duration-500"
+          className="absolute w-full bg-green-500/20 border-t border-b border-green-400/50 z-20 transition-all duration-500 pointer-events-none"
           style={{ 
             bottom: `${zoneBottom}%`, 
             height: `${zoneHeight}%` 
@@ -43,9 +70,12 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
           </div>
         </div>
 
-        {/* The Liquid */}
+        {/* 
+          Layer 2: The Liquid 
+          Z-Index 10: Sits ABOVE the Stream, creating the illusion of stream entering the liquid.
+        */}
         <div 
-          className={`absolute bottom-0 left-0 w-full ${liquidColor}`}
+          className={`absolute bottom-0 left-0 w-full ${liquidColor} z-10`}
           style={{ height: `${Math.max(0, liquidHeight)}%` }}
         >
           {/* Bubbles - Only for Soda */}
@@ -60,9 +90,9 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
           )}
         </div>
 
-        {/* The Foam */}
+        {/* The Foam - Also Z-Index 10 to cover stream */}
         <div 
-          className={`absolute left-0 w-full ${foamColor} opacity-80`}
+          className={`absolute left-0 w-full ${foamColor} opacity-80 z-10`}
           style={{ 
             bottom: `${liquidHeight}%`,
             height: `${Math.max(0, foamHeight)}%` 

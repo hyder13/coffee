@@ -12,8 +12,6 @@ export const Dispenser: React.FC<DispenserProps> = ({ isPouring, drinkType }) =>
   // Styling based on drink type
   const brandColor = isSoda ? 'bg-teal-600' : 'bg-amber-900';
   const logoText = isSoda ? '激浪汽水' : '醇香咖啡';
-  // Use slightly lighter colors for the stream to show flow
-  const liquidStreamColor = isSoda ? 'bg-teal-400' : 'bg-amber-800'; 
   const textColor = isSoda ? 'text-teal-800' : 'text-amber-100';
 
   return (
@@ -36,31 +34,8 @@ export const Dispenser: React.FC<DispenserProps> = ({ isPouring, drinkType }) =>
         </div>
       </div>
 
-      {/* The Nozzle Tip */}
+      {/* The Nozzle Tip - Stream is now handled by Glass component for better physics visuals */}
       <div className="w-4 h-4 bg-gray-400 rounded-b-sm shadow-md relative flex justify-center">
-          {/* Pouring Stream */}
-          {/* We keep the container always present but animate the inner div height for smoother physics feel */}
-          <div className="absolute top-full w-2 overflow-visible flex justify-center">
-             <div 
-                className={`
-                   ${liquidStreamColor} 
-                   transition-all duration-200 ease-in-out
-                   rounded-b-full
-                   ${isPouring ? 'h-52 opacity-90' : 'h-0 opacity-0'}
-                `}
-                style={{
-                   width: isPouring ? '10px' : '4px', // Slight width expansion when pouring
-                   // Striped gradient to simulate fast flowing liquid
-                   backgroundImage: `linear-gradient(45deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)`,
-                   backgroundSize: '20px 20px',
-                   animation: isPouring ? 'flow-stripe 0.4s linear infinite' : 'none',
-                   boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                }}
-             >
-                {/* Optional: Add a subtle 'core' to the stream for depth */}
-                <div className="w-full h-full bg-white/10 absolute top-0 left-0 animate-pulse"></div>
-             </div>
-          </div>
       </div>
     </div>
   );

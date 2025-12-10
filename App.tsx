@@ -468,13 +468,13 @@ export default function App() {
           {/* Game Stage Area */}
           <div className="flex-1 w-full flex flex-col items-center justify-center relative">
             
-            {/* Dispenser */}
-            <div className="w-full relative z-10 mb-[-20px]">
+            {/* Dispenser - Increased z-index to 30 to stay above Glass stream */}
+            <div className="w-full relative z-30 mb-[-20px]">
               <Dispenser isPouring={status === 'POURING'} drinkType={drinkType} />
             </div>
 
-            {/* Glass Container */}
-            <div className="relative pt-8 pb-4">
+            {/* Glass Container - Pass isPouring for internal stream rendering */}
+            <div className="relative pt-8 pb-4 z-10">
               {/* Feedback Bubble */}
               {feedback && (
                 <div className="absolute -top-16 left-1/2 -translate-x-1/2 whitespace-nowrap z-50 animate-pop">
@@ -490,12 +490,13 @@ export default function App() {
                 isSpilled={status === 'SPILLED'} 
                 drinkType={drinkType}
                 targetLine={targetLine}
+                isPouring={status === 'POURING'}
               />
             </div>
           </div>
 
           {/* Controls Area */}
-          <div className="w-full pb-8 pt-2 px-6 flex flex-col items-center justify-end bg-gradient-to-t from-black/60 to-transparent">
+          <div className="w-full pb-8 pt-2 px-6 flex flex-col items-center justify-end bg-gradient-to-t from-black/60 to-transparent z-20">
             <button
               onMouseDown={startPouring}
               onMouseUp={stopPouring}
