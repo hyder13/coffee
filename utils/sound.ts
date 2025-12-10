@@ -1,25 +1,15 @@
 // Web Audio API Context
 let audioCtx: AudioContext | null = null;
 
-// Audio Nodes for Sample-based Playback
-let pourSource: AudioBufferSourceNode | null = null;
-let pourGain: GainNode | null = null;
-let pourBuffer: AudioBuffer | null = null; // Store the decoded audio data
-
-// Audio Nodes for Synthesis Fallback
+// Audio Nodes for Synthesis
 let synthSource: AudioBufferSourceNode | null = null;
 let synthFilter: BiquadFilterNode | null = null;
 let synthGain: GainNode | null = null;
 let synthLfo: OscillatorNode | null = null;
 let synthLfoGain: GainNode | null = null;
 
-let bgmAudio: HTMLAudioElement | null = null;
+// internal mute state (default unmuted)
 let isMuted = false;
-
-// Using Google Actions Sounds for better reliability
-const BGM_URL = 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg'; 
-// Real water pouring sample
-const POUR_SAMPLE_URL = 'https://actions.google.com/sounds/v1/water/liquid_pouring.ogg';
 
 export const SoundManager = {
   init: () => {
@@ -30,35 +20,11 @@ export const SoundManager = {
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
-
-    // Initialize BGM
-    if (!bgmAudio) {
-      bgmAudio = new Audio(BGM_URL);
-      bgmAudio.loop = true;
-      bgmAudio.volume = 0.2; // Lower volume for ambience
-    }
-
-    // Preload Pouring Sound
-    if (!pourBuffer) {
-        fetch(POUR_SAMPLE_URL)
-            .then(response => {
-                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-                return response.arrayBuffer();
-            })
-            .then(arrayBuffer => audioCtx!.decodeAudioData(arrayBuffer))
-            .then(decodedAudio => {
-                console.log('Pour sound loaded successfully');
-                pourBuffer = decodedAudio;
-            })
-            .catch(e => console.error("Error loading pour sound, will use synthesis fallback:", e));
-    }
   },
 
+  // Kept for compatibility if App calls it, though UI button is removed
   toggleMute: () => {
     isMuted = !isMuted;
-    if (bgmAudio) {
-      bgmAudio.muted = isMuted;
-    }
     if (audioCtx && isMuted) {
       audioCtx.suspend();
     } else if (audioCtx && !isMuted) {
@@ -68,57 +34,25 @@ export const SoundManager = {
   },
 
   playBGM: () => {
-    if (bgmAudio && !isMuted) {
-      bgmAudio.play().catch(e => console.log('Audio autoplay blocked', e));
-    }
+    // Removed external BGM to ensure offline functionality and prevent network errors.
+    // Could add a synthetic ambience here in the future.
   },
 
   stopBGM: () => {
-    if (bgmAudio) {
-      bgmAudio.pause();
-      bgmAudio.currentTime = 0;
-    }
+    // No-op since BGM is removed
   },
 
   startPouring: (drinkType: 'SODA' | 'COFFEE' = 'SODA') => {
     if (!audioCtx || isMuted) return;
     
-    // Resume context if needed (common browser policy fix)
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
 
-    // FALLBACK: If external sample isn't loaded yet, use synthesis
-    if (!pourBuffer) {
-        SoundManager.startSyntheticPouring();
-        return;
-    }
-
-    // --- Sample Based Playback ---
-    try {
-        pourSource = audioCtx.createBufferSource();
-        pourSource.buffer = pourBuffer;
-        pourSource.loop = true; 
-
-        // Adjust pitch
-        pourSource.playbackRate.value = drinkType === 'SODA' ? 1.0 : 0.85;
-
-        // Gain
-        pourGain = audioCtx.createGain();
-        pourGain.gain.setValueAtTime(0, audioCtx.currentTime);
-        pourGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.1); 
-
-        pourSource.connect(pourGain);
-        pourGain.connect(audioCtx.destination);
-        pourSource.start();
-    } catch (e) {
-        console.error("Error playing sample:", e);
-        // Fallback if playback fails
-        SoundManager.startSyntheticPouring(); 
-    }
+    SoundManager.startSyntheticPouring(drinkType);
   },
 
-  startSyntheticPouring: () => {
+  startSyntheticPouring: (drinkType: 'SODA' | 'COFFEE') => {
     if (!audioCtx) return;
 
     // 1. Generate Brown Noise (Smoother than white noise)
@@ -137,14 +71,15 @@ export const SoundManager = {
     synthSource.buffer = buffer;
     synthSource.loop = true;
 
-    // 2. Dynamic Filtering (UPDATED for better mobile audibility)
+    // 2. Dynamic Filtering
     synthFilter = audioCtx.createBiquadFilter();
     synthFilter.type = 'lowpass';
-    // Increased frequency to 1200Hz so it's brighter and easier to hear on phones
-    synthFilter.frequency.value = 1200; 
+    // Frequency tuned for liquid sound
+    // Soda is fizzier (higher freq), Coffee is thicker (lower freq)
+    synthFilter.frequency.value = drinkType === 'SODA' ? 1200 : 800; 
     synthFilter.Q.value = 3; 
 
-    // 3. LFO to modulate filter
+    // 3. LFO to modulate filter (adds the "glug" texture)
     synthLfo = audioCtx.createOscillator();
     synthLfo.type = 'sine';
     synthLfo.frequency.value = 12; 
@@ -155,7 +90,7 @@ export const SoundManager = {
     synthLfo.connect(synthLfoGain);
     synthLfoGain.connect(synthFilter.frequency);
 
-    // 4. Output Gain (UPDATED: louder)
+    // 4. Output Gain
     synthGain = audioCtx.createGain();
     synthGain.gain.setValueAtTime(0, audioCtx.currentTime);
     synthGain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.1);
@@ -173,18 +108,6 @@ export const SoundManager = {
     if (!audioCtx) return;
     const now = audioCtx.currentTime;
     const stopTime = now + 0.15;
-
-    // Stop Sample
-    if (pourGain && pourSource) {
-        pourGain.gain.cancelScheduledValues(now);
-        pourGain.gain.setValueAtTime(pourGain.gain.value, now);
-        pourGain.gain.linearRampToValueAtTime(0, stopTime);
-        pourSource.stop(stopTime);
-        const oldSource = pourSource;
-        setTimeout(() => { if(oldSource) oldSource.disconnect(); }, 200);
-        pourSource = null;
-        pourGain = null;
-    }
 
     // Stop Synthesis
     if (synthGain && synthSource) {

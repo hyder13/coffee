@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
 import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, TOLERANCE, ML_PER_PERCENT } from './types';
-import { Timer, RefreshCcw, Trophy, User, Droplets, Volume2, VolumeX, Play, Clock } from 'lucide-react';
+import { Timer, RefreshCcw, Trophy, User, Droplets, Play, Clock } from 'lucide-react';
 import { SoundManager } from './utils/sound';
 
 export default function App() {
@@ -22,7 +22,6 @@ export default function App() {
   // Round Specific
   const [drinkType, setDrinkType] = useState<DrinkType>('SODA');
   const [targetLine, setTargetLine] = useState(75); // Dynamic target
-  const [isMuted, setIsMuted] = useState(false);
 
   // Physics Visualization State
   const [liquidLevel, setLiquidLevel] = useState(0); 
@@ -48,11 +47,6 @@ export default function App() {
   useEffect(() => {
     drinkTypeRef.current = drinkType;
   }, [drinkType]);
-
-  const toggleMute = () => {
-    const muted = SoundManager.toggleMute();
-    setIsMuted(muted);
-  };
 
   // --- Physics Engine (物理引擎設定) ---
   const updatePhysics = useCallback(() => {
@@ -362,16 +356,6 @@ export default function App() {
       
       {/* Background */}
       <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 to-black"></div>
-
-      {/* Audio Control */}
-      <div className="absolute top-safe-4 right-4 z-50 mt-2">
-        <button 
-          onClick={toggleMute}
-          className="p-3 bg-black/30 rounded-full hover:bg-black/50 transition-colors backdrop-blur-sm"
-        >
-          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-        </button>
-      </div>
 
       {gameState === 'MENU' && (
         <div className="z-10 text-center bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-2xl w-full max-w-[90%] mx-auto animate-pop">
