@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>汽水大師</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,6 +12,9 @@
         font-family: 'Fredoka', sans-serif;
         background-color: #1a1a1a;
         touch-action: none; /* Prevent scrolling while playing */
+        user-select: none; /* Prevent text selection */
+        -webkit-user-select: none;
+        overflow: hidden; /* Prevent elastic scrolling on iOS */
       }
 
       /* Custom animations for juice feedback */
@@ -37,6 +40,17 @@
         background: rgba(255, 255, 255, 0.6);
         border-radius: 50%;
         animation: bubble-rise 0.8s infinite linear;
+      }
+
+      /* Liquid Flow Animation */
+      @keyframes flow-stripe {
+        0% { background-position: 0 0; }
+        100% { background-position: 0 40px; }
+      }
+      
+      /* Mobile button press effect */
+      .active-press {
+        transform: scale(0.95);
       }
     </style>
   <script type="importmap">

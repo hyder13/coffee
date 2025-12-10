@@ -1,31 +1,46 @@
 import React from 'react';
-import { TARGET_LINE, DrinkType } from '../types';
+import { DrinkType, TOLERANCE } from '../types';
 
 interface GlassProps {
   liquidHeight: number; // 0 to 100+
   foamHeight: number;   // 0 to 100+
   isSpilled: boolean;
   drinkType: DrinkType;
+  targetLine: number;   // Dynamic target percentage
 }
 
-export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled, drinkType }) => {
+export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpilled, drinkType, targetLine }) => {
   const isSoda = drinkType === 'SODA';
 
   // Colors
   const liquidColor = isSoda ? 'bg-teal-500' : 'bg-amber-950';
   const foamColor = isSoda ? 'bg-white' : 'bg-amber-200'; // Coffee foam is crema (tan)
 
+  // Calculate Success Zone
+  const zoneBottom = targetLine - TOLERANCE;
+  const zoneHeight = TOLERANCE * 2;
+
   return (
     <div className="relative mx-auto w-32 h-48 sm:w-40 sm:h-60">
       {/* The Glass Container */}
       <div className={`relative w-full h-full border-b-4 border-l-4 border-r-4 border-white/80 rounded-b-xl overflow-hidden backdrop-blur-sm transition-colors duration-300 ${isSpilled ? 'border-red-500 bg-red-900/20' : 'bg-white/10'}`}>
         
-        {/* Target Line */}
+        {/* Success Zone (The Green Area) */}
         <div 
-          className="absolute w-full border-t-2 border-dashed border-red-500 z-20 flex items-center justify-end pr-1"
-          style={{ bottom: `${TARGET_LINE}%` }}
+          className="absolute w-full bg-green-500/20 border-t border-b border-green-400/50 z-10 transition-all duration-500"
+          style={{ 
+            bottom: `${zoneBottom}%`, 
+            height: `${zoneHeight}%` 
+          }}
         >
-          <span className="text-[12px] text-red-500 font-bold -mt-4 bg-white/80 px-1 rounded">目標線</span>
+          {/* Target Line Indicator */}
+          <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-green-300 opacity-70 transform -translate-y-1/2"></div>
+          
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+             <span className="text-[10px] text-green-300 font-bold bg-black/40 px-1 rounded backdrop-blur-md">
+               {targetLine}%
+             </span>
+          </div>
         </div>
 
         {/* The Liquid */}

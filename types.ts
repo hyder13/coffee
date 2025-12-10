@@ -4,19 +4,12 @@ export type GameState = 'MENU' | 'PLAYING' | 'RESULT';
 
 export type FillStatus = 'EMPTY' | 'POURING' | 'SETTLING' | 'EVALUATING' | 'SPILLED';
 
-export interface ScoreConfig {
-  perfectMin: number;
-  perfectMax: number;
-  goodMin: number;
-  goodMax: number;
-}
+// Range for the dynamic target generation (percentage)
+export const TARGET_MIN = 60;
+export const TARGET_MAX = 85;
 
-// 80% is the target line
-export const TARGET_LINE = 80;
+// Tolerance range (+/- percentage from target)
+export const TOLERANCE = 3; 
 
-export const SCORING: ScoreConfig = {
-  perfectMin: 78,
-  perfectMax: 82,
-  goodMin: 70,
-  goodMax: 90, // Anything above 90 is risky
-};
+// Conversion: 1% height ≈ 5ml (assuming 500ml glass capacity)
+export const ML_PER_PERCENT = 5;
