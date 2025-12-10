@@ -8,6 +8,15 @@ let synthGain: GainNode | null = null;
 let synthLfo: OscillatorNode | null = null;
 let synthLfoGain: GainNode | null = null;
 
+// Audio Nodes for Sample (MP3)
+let pourBuffer: AudioBuffer | null = null;
+let sampleSource: AudioBufferSourceNode | null = null;
+let sampleGain: GainNode | null = null;
+
+// URL for the custom MP3 sound
+// We use a specific pouring sound URL. If this fails to load (CORS/Network), it falls back to synthesis.
+const CUSTOM_POUR_URL = 'https://assets.mixkit.co/active_storage/sfx/1192/1192-preview.mp3';
+
 // internal mute state (default unmuted)
 let isMuted = false;
 
@@ -19,6 +28,25 @@ export const SoundManager = {
     
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
+    }
+
+    // Attempt to load the custom sound
+    // This runs asynchronously. Until it loads, the game uses synthesis.
+    if (audioCtx && !pourBuffer) {
+        fetch(CUSTOM_POUR_URL)
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => audioCtx!.decodeAudioData(arrayBuffer))
+            .then(decodedAudio => {
+                pourBuffer = decodedAudio;
+                console.log("Custom pour sound loaded successfully!");
+            })
+            .catch(error => {
+                console.warn("Could not load custom sound, falling back to synthesis:", error);
+                // We just don't set pourBuffer, so startPouring will use synthesis
+            });
     }
   },
 
@@ -35,7 +63,6 @@ export const SoundManager = {
 
   playBGM: () => {
     // Removed external BGM to ensure offline functionality and prevent network errors.
-    // Could add a synthetic ambience here in the future.
   },
 
   stopBGM: () => {
@@ -49,7 +76,35 @@ export const SoundManager = {
       audioCtx.resume();
     }
 
-    SoundManager.startSyntheticPouring(drinkType);
+    // Prioritize MP3 if loaded, otherwise use synthesis
+    if (pourBuffer) {
+        SoundManager.startSamplePouring();
+    } else {
+        SoundManager.startSyntheticPouring(drinkType);
+    }
+  },
+
+  startSamplePouring: () => {
+      if (!audioCtx || !pourBuffer) return;
+      
+      // Stop previous if exists
+      if (sampleSource) {
+          try { sampleSource.stop(); } catch(e) {}
+      }
+
+      sampleSource = audioCtx.createBufferSource();
+      sampleSource.buffer = pourBuffer;
+      sampleSource.loop = true;
+      
+      sampleGain = audioCtx.createGain();
+      sampleGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      // Fast attack for responsiveness
+      sampleGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.1);
+      
+      sampleSource.connect(sampleGain);
+      sampleGain.connect(audioCtx.destination);
+      
+      sampleSource.start(0);
   },
 
   startSyntheticPouring: (drinkType: 'SODA' | 'COFFEE') => {
@@ -109,7 +164,25 @@ export const SoundManager = {
     const now = audioCtx.currentTime;
     const stopTime = now + 0.15;
 
-    // Stop Synthesis
+    // Stop Sample if playing
+    if (sampleSource && sampleGain) {
+        sampleGain.gain.cancelScheduledValues(now);
+        sampleGain.gain.setValueAtTime(sampleGain.gain.value, now);
+        sampleGain.gain.linearRampToValueAtTime(0, stopTime);
+        sampleSource.stop(stopTime);
+        
+        // Cleanup sample nodes
+        const oldSource = sampleSource;
+        const oldGain = sampleGain;
+        sampleSource = null;
+        sampleGain = null;
+        
+        setTimeout(() => {
+            // Disconnect if needed, though GC handles it usually
+        }, 200);
+    }
+
+    // Stop Synthesis if playing
     if (synthGain && synthSource) {
         synthGain.gain.cancelScheduledValues(now);
         synthGain.gain.setValueAtTime(synthGain.gain.value, now);
