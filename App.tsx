@@ -468,6 +468,15 @@ export default function App() {
           {/* Game Stage Area */}
           <div className="flex-1 w-full flex flex-col items-center justify-center relative">
             
+            {/* Feedback Bubble - Floating above everything (z-100) */}
+            {feedback && (
+                <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap z-[100] animate-pop pointer-events-none">
+                  <div className={`px-6 py-3 rounded-2xl font-black border-4 shadow-2xl text-3xl transform -rotate-6 bg-white ${drinkType === 'SODA' ? 'text-teal-800 border-teal-500' : 'text-amber-800 border-amber-600'}`}>
+                    {feedback}
+                  </div>
+                </div>
+              )}
+
             {/* Dispenser - Increased z-index to 30 to stay above Glass stream */}
             <div className="w-full relative z-30 mb-[-20px]">
               <Dispenser isPouring={status === 'POURING'} drinkType={drinkType} />
@@ -475,15 +484,6 @@ export default function App() {
 
             {/* Glass Container - Pass isPouring for internal stream rendering */}
             <div className="relative pt-8 pb-4 z-10">
-              {/* Feedback Bubble */}
-              {feedback && (
-                <div className="absolute -top-16 left-1/2 -translate-x-1/2 whitespace-nowrap z-50 animate-pop">
-                  <div className={`px-5 py-2 rounded-2xl font-black border-4 shadow-xl text-2xl transform rotate-[-3deg] bg-white ${drinkType === 'SODA' ? 'text-teal-800 border-teal-500' : 'text-amber-800 border-amber-600'}`}>
-                    {feedback}
-                  </div>
-                </div>
-              )}
-              
               <Glass 
                 liquidHeight={liquidLevel} 
                 foamHeight={foamLevel} 
