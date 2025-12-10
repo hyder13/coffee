@@ -53,20 +53,21 @@ export default function App() {
     setIsMuted(muted);
   };
 
-  // --- Physics Engine ---
+  // --- Physics Engine (物理引擎設定) ---
   const updatePhysics = useCallback(() => {
     const currentStatus = statusRef.current;
     const currentDrink = drinkTypeRef.current;
 
     if (currentDrink === 'SODA') {
-      // === CHAOTIC SODA PHYSICS ===
+      // === SODA PHYSICS (汽水物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
+        // [設定] 汽水倒水速度 (數字越大，水上升越快)
         const fillSpeed = 0.55; 
         liquidLevelRef.current += fillSpeed;
         
-        // Pressure builds up, but with randomness (Chaos)
-        const chaos = (Math.random() * 0.1) - 0.02; // Small fluctuation
+        // [設定] 壓力累積 (數字越大，手放開後泡沫衝越高)
+        const chaos = (Math.random() * 0.1) - 0.02; // 隨機擾動
         pressureRef.current += (0.22 + chaos); 
         
         // Base foam creation
@@ -94,9 +95,10 @@ export default function App() {
       }
 
     } else {
-      // === COFFEE PHYSICS ===
+      // === COFFEE PHYSICS (咖啡物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
+        // [設定] 咖啡倒水速度 (通常比汽水快，因為泡沫少)
         const fillSpeed = 0.85; 
         liquidLevelRef.current += fillSpeed;
         
@@ -136,6 +138,8 @@ export default function App() {
     
     // No points, move to next
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    
+    // [設定] 溢出後要等多久才換下一杯 (1500 = 1.5秒)
     transitionTimerRef.current = setTimeout(nextRound, 1500);
   };
 
@@ -180,8 +184,12 @@ export default function App() {
     statusRef.current = 'SETTLING';
     SoundManager.stopPouring();
 
-    // Randomize wait time slightly for realism
+    // [設定] 手放開後的「等待/結算時間」
+    // SODA (汽水) 設比較久 (2200ms) 因為要看泡沫消退
+    // COFFEE (咖啡) 設比較快 (800ms) 因為不需要等太久
     const baseWait = drinkType === 'SODA' ? 2200 : 800;
+    
+    // 這裡加了一點隨機時間 (±200ms) 讓玩家無法讀秒
     const randomWait = baseWait + (Math.random() * 400 - 200);
 
     if (settledTimerRef.current) clearTimeout(settledTimerRef.current);
@@ -233,6 +241,8 @@ export default function App() {
     }
     
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    
+    // [設定] 顯示結果(成功/失敗)後，停留多久才換下一杯 (1500 = 1.5秒)
     transitionTimerRef.current = setTimeout(nextRound, 1500);
   };
 
@@ -274,7 +284,10 @@ export default function App() {
     setGameState('PLAYING');
     setCompletedCups(0);
     setTotalML(0);
-    setTimeLeft(30);
+    
+    // [設定] 遊戲總時間 (單位: 秒)
+    setTimeLeft(30); 
+    
     nextRound();
   };
 
