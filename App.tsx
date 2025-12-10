@@ -140,7 +140,7 @@ export default function App() {
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     
     // [設定] 溢出後要等多久才換下一杯 (1500 = 1.5秒)
-    transitionTimerRef.current = setTimeout(nextRound, 1500);
+    transitionTimerRef.current = setTimeout(nextRound, 1000);
   };
 
   // --- Loop Management ---
@@ -187,7 +187,7 @@ export default function App() {
     // [設定] 手放開後的「等待/結算時間」
     // SODA (汽水) 設比較久 (2200ms) 因為要看泡沫消退
     // COFFEE (咖啡) 設比較快 (800ms) 因為不需要等太久
-    const baseWait = drinkType === 'SODA' ? 2200 : 800;
+    const baseWait = drinkType === 'SODA' ? 1800 : 800;
     
     // 這裡加了一點隨機時間 (±200ms) 讓玩家無法讀秒
     const randomWait = baseWait + (Math.random() * 400 - 200);
@@ -261,7 +261,7 @@ export default function App() {
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     
     // [設定] 顯示結果(成功/失敗)後，停留多久才換下一杯 (1500 = 1.5秒)
-    transitionTimerRef.current = setTimeout(nextRound, 1500);
+    transitionTimerRef.current = setTimeout(nextRound, 750);
   };
 
   const nextRound = () => {
@@ -305,7 +305,7 @@ export default function App() {
     setEndTime(''); // Reset verification time
     
     // [設定] 遊戲總時間 (單位: 秒)
-    setTimeLeft(30); 
+    setTimeLeft(35); 
     
     nextRound();
   };
