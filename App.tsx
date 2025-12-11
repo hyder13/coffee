@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
-import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, TOLERANCE, ML_PER_PERCENT } from './types';
+import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, SODA_TOLERANCE, COFFEE_TOLERANCE, ML_PER_PERCENT } from './types';
 import { Timer, RefreshCcw, Trophy, User, Droplets, Play, Clock } from 'lucide-react';
 import { SoundManager } from './utils/sound';
 
@@ -205,8 +205,11 @@ export default function App() {
     const finalLevel = liquidLevelRef.current + foamLevelRef.current;
     
     // Dynamic Scoring Logic
-    const minSuccess = targetLine - TOLERANCE;
-    const maxSuccess = targetLine + TOLERANCE;
+    // Apply specific tolerances for Soda vs Coffee
+    const currentTolerance = drinkType === 'SODA' ? SODA_TOLERANCE : COFFEE_TOLERANCE;
+    
+    const minSuccess = targetLine - currentTolerance;
+    const maxSuccess = targetLine + currentTolerance;
 
     let msg = "";
     let isSuccess = false;
@@ -229,8 +232,6 @@ export default function App() {
         msg = "完美控制！";
         // === 差異化計分邏輯 ===
         // 基礎獎勵 30分 + 精準度獎勵 (0~20分)
-        // 越接近 0 誤差，分數越高，會產生個位數差異
-        // 結合 physics 裡的 random flowNoise，diff 會有非常細微的差異
         bonusPoints = 30 + Math.floor((1 - diff) * 20);
       } else {
         msg = "成功！";
