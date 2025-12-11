@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrinkType, SODA_TOLERANCE, COFFEE_TOLERANCE } from '../types';
+import { DrinkType, GAME_CONFIG } from '../types';
 
 interface GlassProps {
   liquidHeight: number; // 0 to 100+
@@ -20,8 +20,8 @@ export const Glass: React.FC<GlassProps> = ({ liquidHeight, foamHeight, isSpille
   // Stream color (lighter than liquid to show flow)
   const liquidStreamColor = isSoda ? 'bg-teal-400' : 'bg-amber-800'; 
 
-  // Determine tolerance based on drink type
-  const tolerance = isSoda ? SODA_TOLERANCE : COFFEE_TOLERANCE;
+  // Determine tolerance based on drink type from GAME_CONFIG
+  const tolerance = GAME_CONFIG[drinkType].TOLERANCE;
 
   // Calculate Success Zone
   const zoneBottom = targetLine - tolerance;

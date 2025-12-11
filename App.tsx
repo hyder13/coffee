@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
-import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, SODA_TOLERANCE, COFFEE_TOLERANCE, ML_PER_PERCENT } from './types';
+import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, GAME_CONFIG, ML_PER_PERCENT } from './types';
 import { Timer, RefreshCcw, Trophy, User, Droplets, Play, Clock } from 'lucide-react';
 import { SoundManager } from './utils/sound';
 
@@ -52,23 +52,25 @@ export default function App() {
   const updatePhysics = useCallback(() => {
     const currentStatus = statusRef.current;
     const currentDrink = drinkTypeRef.current;
+    
+    // 讀取目前的設定參數
+    const config = GAME_CONFIG[currentDrink];
 
     // [新增] 微觀流體擾動 (Micro-Flow Noise)
-    // 讓每次 update 的流速都有極細微的差異 (0.001 ~ 0.005)
-    // 這確保了最終高度的小數點後數值是隨機的，避免同分
+    // 讓每次 update 的流速都有極細微的差異
     const flowNoise = Math.random() * 0.04; 
 
     if (currentDrink === 'SODA') {
       // === SODA PHYSICS (汽水物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-        // [設定] 汽水倒水速度 (基礎 0.55 + 擾動)
-        const fillSpeed = 0.55 + flowNoise; 
+        // 使用 Config 中的速度
+        const fillSpeed = config.FILL_SPEED + flowNoise; 
         liquidLevelRef.current += fillSpeed;
         
-        // [設定] 壓力累積 (數字越大，手放開後泡沫衝越高)
+        // 使用 Config 中的泡沫產生率
         const chaos = (Math.random() * 0.1) - 0.02; // 隨機擾動
-        pressureRef.current += (0.22 + chaos); 
+        pressureRef.current += (config.FOAM_RATE + chaos); 
         
         // Base foam creation
         if (foamLevelRef.current < 8) {
@@ -98,8 +100,8 @@ export default function App() {
       // === COFFEE PHYSICS (咖啡物理參數) ===
       
       if (isPouringRef.current && currentStatus !== 'SPILLED' && currentStatus !== 'EVALUATING') {
-        // [設定] 咖啡倒水速度 (基礎 0.85 + 擾動)
-        const fillSpeed = 0.85 + flowNoise; 
+        // 使用 Config 中的速度
+        const fillSpeed = config.FILL_SPEED + flowNoise; 
         liquidLevelRef.current += fillSpeed;
         
         const targetCrema = 5;
@@ -139,7 +141,7 @@ export default function App() {
     // No points, move to next
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     
-    // [設定] 溢出後要等多久才換下一杯 (1500 = 1.5秒)
+    // [設定] 溢出後要等多久才換下一杯
     transitionTimerRef.current = setTimeout(nextRound, 1000);
   };
 
@@ -184,10 +186,8 @@ export default function App() {
     statusRef.current = 'SETTLING';
     SoundManager.stopPouring();
 
-    // [設定] 手放開後的「等待/結算時間」
-    // SODA (汽水) 設比較久 (2200ms) 因為要看泡沫消退
-    // COFFEE (咖啡) 設比較快 (800ms) 因為不需要等太久
-    const baseWait = drinkType === 'SODA' ? 1800 : 800;
+    // 讀取設定檔中的結算等待時間
+    const baseWait = GAME_CONFIG[drinkType].SETTLING_TIME;
     
     // 這裡加了一點隨機時間 (±200ms) 讓玩家無法讀秒
     const randomWait = baseWait + (Math.random() * 400 - 200);
@@ -205,8 +205,8 @@ export default function App() {
     const finalLevel = liquidLevelRef.current + foamLevelRef.current;
     
     // Dynamic Scoring Logic
-    // Apply specific tolerances for Soda vs Coffee
-    const currentTolerance = drinkType === 'SODA' ? SODA_TOLERANCE : COFFEE_TOLERANCE;
+    // 使用設定檔中的 Tolerance
+    const currentTolerance = GAME_CONFIG[drinkType].TOLERANCE;
     
     const minSuccess = targetLine - currentTolerance;
     const maxSuccess = targetLine + currentTolerance;
