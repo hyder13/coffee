@@ -2,51 +2,61 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Glass } from './components/Glass';
 import { Dispenser } from './components/Dispenser';
 import { GameState, FillStatus, DrinkType, TARGET_MIN, TARGET_MAX, GAME_CONFIG, ML_PER_PERCENT, SODA_APPEARANCE_CHANCE, GAME_DURATION } from './types';
-import { Timer, RefreshCcw, Trophy, User, Droplets, Play, Clock } from 'lucide-react';
+import { Timer, RefreshCcw, Trophy, User, Droplets, Play, Clock, Lock, ShieldCheck } from 'lucide-react';
 import { SoundManager } from './utils/sound';
 
 export default function App() {
+  // --- Auth State ---
+  const [gameState, setGameState] = useState<GameState>('PASSCODE');
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [isPasscodeError, setIsPasscodeError] = useState(false);
+
   // --- Game Config State ---
   const [nickname, setNickname] = useState('');
-  const [tempNickname, setTempNickname] = useState(''); // Input field state
+  const [tempNickname, setTempNickname] = useState(''); 
 
   // --- Game Play State ---
-  const [gameState, setGameState] = useState<GameState>('MENU');
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
-  const [endTime, setEndTime] = useState(''); // Timestamp for result verification
+  const [endTime, setEndTime] = useState(''); 
   
-  // Scoreboard
   const [completedCups, setCompletedCups] = useState(0);
   const [totalML, setTotalML] = useState(0);
   
-  // Round Specific
   const [drinkType, setDrinkType] = useState<DrinkType>('SODA');
-  const [targetLine, setTargetLine] = useState(75); // Dynamic target
+  const [targetLine, setTargetLine] = useState(75); 
 
-  // Physics Visualization State
   const [liquidLevel, setLiquidLevel] = useState(0); 
   const [foamLevel, setFoamLevel] = useState(0); 
   const [status, setStatus] = useState<FillStatus>('EMPTY');
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // --- Refs for Physics ---
   const requestRef = useRef<number>(undefined);
   const isPouringRef = useRef(false);
   const liquidLevelRef = useRef(0);
   const foamLevelRef = useRef(0);
   const pressureRef = useRef(0); 
   
-  // Timers
   const settledTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Refs for Loop Access (Avoiding closure staleness)
   const statusRef = useRef<FillStatus>('EMPTY');
   const drinkTypeRef = useRef<DrinkType>('SODA');
 
   useEffect(() => {
     drinkTypeRef.current = drinkType;
   }, [drinkType]);
+
+  // --- Passcode Verification ---
+  const handleVerifyPasscode = () => {
+    if (passcodeInput === '我愛慧邦') {
+      setGameState('MENU');
+      setIsPasscodeError(false);
+    } else {
+      setIsPasscodeError(true);
+      setPasscodeInput('');
+      setTimeout(() => setIsPasscodeError(false), 500);
+    }
+  };
 
   // --- Physics Engine ---
   const updatePhysics = useCallback(() => {
@@ -167,7 +177,7 @@ export default function App() {
       SoundManager.playWin();
       if (diff < 1) {
         msg = "完美控制！";
-        perfectMultiplier = 1.2; // 完美時額外 20% 分數獎勵
+        perfectMultiplier = 1.2; 
       } else {
         msg = "成功！";
       }
@@ -178,7 +188,6 @@ export default function App() {
 
     if (isSuccess) {
       setCompletedCups(c => c + 1);
-      // 使用 Config 中的分數加成
       let mlEarned = Math.floor(finalLevel * ML_PER_PERCENT * config.SCORE_MULTIPLIER * perfectMultiplier);
       if (perfectMultiplier > 1) {
         mlEarned += config.PERFECT_BONUS;
@@ -203,7 +212,6 @@ export default function App() {
     statusRef.current = 'EMPTY';
     setFeedback(null);
 
-    // 使用 types.ts 的機率設定
     const newDrink = Math.random() < SODA_APPEARANCE_CHANCE ? 'SODA' : 'COFFEE';
     setDrinkType(newDrink);
     const newTarget = Math.floor(Math.random() * (TARGET_MAX - TARGET_MIN + 1)) + TARGET_MIN;
@@ -220,7 +228,7 @@ export default function App() {
     setCompletedCups(0);
     setTotalML(0);
     setEndTime('');
-    setTimeLeft(GAME_DURATION); // 改為讀取設定檔
+    setTimeLeft(GAME_DURATION); 
     nextRound();
   };
 
@@ -250,8 +258,45 @@ export default function App() {
   }, [gameState, timeLeft]);
 
   return (
-    <div className={`h-[100dvh] w-full flex flex-col items-center font-sans text-white relative overflow-hidden transition-colors duration-500 ${gameState === 'MENU' ? 'bg-neutral-900 justify-center' : (drinkType === 'SODA' ? 'bg-teal-900' : 'bg-amber-950')}`}>
+    <div className={`h-[100dvh] w-full flex flex-col items-center font-sans text-white relative overflow-hidden transition-colors duration-500 ${gameState === 'MENU' || gameState === 'PASSCODE' ? 'bg-neutral-900 justify-center' : (drinkType === 'SODA' ? 'bg-teal-900' : 'bg-amber-950')}`}>
       <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 to-black"></div>
+
+      {/* Passcode Authorization Dialog */}
+      {gameState === 'PASSCODE' && (
+        <div className="z-[1000] fixed inset-0 flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl">
+           <div className={`w-full max-w-md bg-white/10 border border-white/20 p-8 rounded-[2.5rem] shadow-2xl transition-transform duration-300 ${isPasscodeError ? 'animate-shake' : 'animate-pop'}`}>
+              <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg transform -rotate-3">
+                 <Lock className="text-white" size={40} />
+              </div>
+              <h2 className="text-3xl font-black text-center mb-2 tracking-tight">身份驗證</h2>
+              <p className="text-gray-400 text-center mb-8 text-sm">請輸入通關密語以繼續遊戲</p>
+              
+              <div className="space-y-4">
+                 <div className="relative">
+                    <ShieldCheck className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${passcodeInput ? 'text-green-400' : 'text-gray-500'}`} size={20} />
+                    <input 
+                       type="text" 
+                       value={passcodeInput}
+                       onChange={(e) => setPasscodeInput(e.target.value)}
+                       onKeyDown={(e) => e.key === 'Enter' && handleVerifyPasscode()}
+                       placeholder="通關密語..."
+                       className={`w-full bg-black/40 border-2 rounded-2xl py-4 pl-12 pr-4 text-xl font-bold transition-all outline-none text-center tracking-widest placeholder:tracking-normal placeholder:font-normal
+                        ${isPasscodeError ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-yellow-400/50 text-white'}
+                       `}
+                    />
+                 </div>
+                 <button 
+                    onClick={handleVerifyPasscode}
+                    className="w-full py-4 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-neutral-900 font-black text-xl rounded-2xl shadow-xl transition-all"
+                 >
+                    驗證進入
+                 </button>
+              </div>
+              <p className="mt-8 text-[10px] text-center text-gray-500 uppercase tracking-[0.2em]">Authorized Access Only</p>
+           </div>
+        </div>
+      )}
+
       {gameState === 'MENU' && (
         <div className="z-10 text-center bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 shadow-2xl w-full max-w-[90%] mx-auto animate-pop">
           <h1 className="text-5xl font-black mb-2 text-white drop-shadow-md tracking-tight">倒飲料大師</h1>
@@ -266,6 +311,7 @@ export default function App() {
           <button onClick={startGame} disabled={!tempNickname.trim()} className={`w-full py-5 rounded-2xl font-black text-xl transition-all shadow-lg flex items-center justify-center gap-2 ${tempNickname.trim() ? 'bg-gradient-to-r from-teal-400 to-blue-500 text-white hover:scale-105 active:scale-95' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}><Play size={24} fill="currentColor" /> 開始挑戰</button>
         </div>
       )}
+
       {gameState === 'RESULT' && (
         <div className="z-10 text-center bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 shadow-2xl animate-pop w-[90%] max-w-sm mt-auto mb-auto">
           <h2 className="text-5xl font-black mb-2">挑戰結束</h2>
@@ -278,6 +324,7 @@ export default function App() {
           <button onClick={returnToMenu} className="w-full py-5 bg-white text-gray-900 rounded-2xl font-black text-xl hover:bg-gray-200 transition-colors flex items-center justify-center shadow-lg active:scale-95"><RefreshCcw className="mr-3" /> 回到主選單</button>
         </div>
       )}
+
       {gameState === 'PLAYING' && (
         <div className="w-full h-full flex flex-col items-center relative z-10 pt-safe">
           <div className="w-full px-4 pt-4 flex justify-between items-center z-20 gap-2">

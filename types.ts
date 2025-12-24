@@ -1,6 +1,6 @@
 export type DrinkType = 'SODA' | 'COFFEE';
 
-export type GameState = 'MENU' | 'PLAYING' | 'RESULT';
+export type GameState = 'PASSCODE' | 'MENU' | 'PLAYING' | 'RESULT';
 
 export type FillStatus = 'EMPTY' | 'POURING' | 'SETTLING' | 'EVALUATING' | 'SPILLED';
 
@@ -13,7 +13,7 @@ export const GAME_DURATION = 60;
 
 // === 出現機率設定 ===
 // 0.7 代表 70% 機率出現汽水
-export const SODA_APPEARANCE_CHANCE = 0.7; 
+export const SODA_APPEARANCE_CHANCE = 0.5; 
 
 // 基礎轉換: 1% 高度 ≈ 6ml
 export const ML_PER_PERCENT = 6;
